@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+    }
+</style>
+
+<body>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v1.9.1/mapbox-gl.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v1.9.1/mapbox-gl.css">
+    <div id="map"></div>
+    <script src="./json/data.json" type="application/json">
+
+    </script>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYXR5c2hrYSIsImEiOiJjazkyeGhxOXAwMGU2M3FyMnNzNHVzZjRmIn0.w7s02NGEXlwVerC4WxEvvw';
+        //地图初始化
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            zoom: 15,
+            center:[ 114.93695027383863, 40.75079073091144]
+        });
+
+        map.on('load', function() {
+            getCarDataList()
+        });
+
+
+        //定义基础数据
+        //存放marker数据
+        const markers = {}
+        let dataIndex = 0
+        let carMapDataList = []
+
+        //创建marker
+        // coordinates Array<Number,Number>
+        const createMarker = (coordinates) => {
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.style.backgroundImage = 'url(./images/car.png)';
+            el.style.width = '20px';
+            el.style.height = '10px';
+            el.style['background-size'] = 'cover'
+            el.style['color'] = '#ffffff'
+            return new mapboxgl.Marker(el).setLngLat(coordinates)
+        }
+        /**
+         * @description 更新车辆位置
+         * @param {Number} vehicleId  车辆的id
+         * @param {Array<Number,Number>} newCoordinates  车辆位置数据[lng,lat]
+         * @param {Number} rotation  车辆的旋转角度
+         * @return {void} 
+        */
+        const updateVehiclePosition = (vehicleId, newCoordinates, rotation = 0) => {
+            // 如果车辆图标已经存在，则直接更新位置
+            if (markers.hasOwnProperty(vehicleId)) {
+                markers[vehicleId].setLngLat(newCoordinates).setRotation(rotation);
+            } else {
+                // 否则创建新的车辆图标并添加到地图上
+                markers[vehicleId] = createMarker(newCoordinates).addTo(map);
+            }
+        }
+
+        /**
+         * @description 清除地图中不在 WebSocket 列表中的车辆图标
+         * @param {Array} usedVehicleIds  更新数据时列表ID的集合
+         * @return {void} 
+        */
+        const clearUnusedMarkers = (usedVehicleIds) => {
+            for (const vehicleId in markers) {
+                if (!usedVehicleIds.includes(vehicleId - 0)) {
+                    markers[vehicleId].remove();
+                    delete markers[vehicleId];
+                }
+            }
+        }
+
+        //处理所需数据
+        // dataList Array
+        const makeVehiclePosition = (dataList) => {
+            //清除所有地图车辆
+            if (dataList === undefined) {
+                clearUnusedMarkers([]);
+                return
+            }
+            // 存储 WebSocket 接收到的车辆ID
+            const usedVehicleIds = [];
+            dataList.map(data => {
+                const { id, longitude, latitude, angle } = data
+                updateVehiclePosition(id, [longitude, latitude], angle);
+                // 将车辆ID添加到使用的车辆ID列表中
+                usedVehicleIds.push(id);
+            })
+            // 清除不在 WebSocket 列表中的车辆图标
+            clearUnusedMarkers(usedVehicleIds);
+        }
+        //获取车辆数据
+        const getCarDataList = ()=>{
+            fetch('./json/data.json')
+            .then(response => response.json())
+            .then(data => {
+                // 在这里可以使用获取到的JSON数据
+                carMapDataList = data
+                requestAnimationFrame(cycleUpdateData)
+            })
+            .catch(error => {
+                // 处理错误
+                console.error('发生错误:', error);
+            });
+        }
+        //循环更新数据
+        const cycleUpdateData = ()=>{
+            makeVehiclePosition(carMapDataList[dataIndex])
+            dataIndex = (dataIndex+1)%carMapDataList.length
+            requestAnimationFrame(cycleUpdateData)
+        }
+    </script>
+</body>
+
+</html>

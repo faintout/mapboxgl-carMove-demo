@@ -21,7 +21,7 @@
    - 清除该部分在地图上的车
 
 **直接上代码**
-`
+```javascript
 
         //定义基础数据
         //存放marker数据
@@ -112,7 +112,7 @@
             requestAnimationFrame(cycleUpdateData)
         }
 
-`
+```
 
 **对于数据过多造成卡顿的问题：**
 
